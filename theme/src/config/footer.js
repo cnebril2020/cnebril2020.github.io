@@ -11,7 +11,7 @@ export const footerSocials = [
   },
   {
     name: 'Github',
-    url: 'https://github.com/littlesticks',
+    url: 'https://github.com/cnebril2020',
     icon: "mdi:github",
   },
   {

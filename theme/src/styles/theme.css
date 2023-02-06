@@ -53,7 +53,7 @@
 	--theme-surface-2: #cce6d0;
 	--theme-on-surface-2: #000;
 
-	/* Theme Shape */
+	/* Theme Shapes */
 	/* Set this to 0 if you want all of the rounded cards, images, etc to be straight edges */
 	--theme-shape-radius: clamp(1rem, 2rem, 3rem);
 	--theme-button-border-radius: 3rem;
@@ -87,7 +87,7 @@
 	--theme-surface-2: #203422;
 	--theme-on-surface-2: #ffffff;
 
-	--theme-shape-radius: 0;
+	--theme-shape-radius: clamp(1rem, 2rem, 3rem);
 
 	--form-field-input-color: var(--theme-on-bg);
 }
@@ -99,7 +99,7 @@
 	--theme-on-primary: hsl(0, 0%, 100%);
 
 	--theme-bg: #eeeff1;
-	--theme-on-bg: #272f27;
+	--theme-on-bg: #3a593a;
 
 	--theme-surface-1: #e6e4e0;
 	--theme-on-surface-1: #272f27;
@@ -120,7 +120,7 @@
 	--theme-bg: #fafafa;
 	--theme-on-bg: #0c0d0d;
 
-	--theme-surface-1: #eef1f3;
+	--theme-surface-1: #e3eef5;
 	--theme-on-surface-1: #0c0d0d;
 
 	--theme-surface-2: #072650;
