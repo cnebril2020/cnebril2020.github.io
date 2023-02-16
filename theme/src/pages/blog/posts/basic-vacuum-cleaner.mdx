@@ -12,17 +12,97 @@ tags:
 import {Button} from '@littlesticks/odyssey-theme-components'
 import {YouTubeEmbed} from '@littlesticks/odyssey-theme-components'
 
-## Solución
+## Practica 1
 
-To get started with the Odyssey Theme clone the [Odyssey Theme Repository](https://github.com/littlesticksdev/odyssey-theme) directly from GitHub or use one of the buttons below to quickly clone or deploy the theme's code.
-
-```js filename="index.js"
-print("Hola Mundo")
-```
-
-
+Propuesta de solución de algoritmo de limpieza por un robot doméstico sin autolocalización. Creo que es interesante 
+empezar por el ver el algoritmo aplicado al robot, para un desglose posterior mucho mas didáctico. El código fuente que vamos
+a estar comentando en esta práctica puedes verlo [aquí](https://github.com/cnebril2020/basic_vacuum_cleaner.github.io/blob/main/practica_1_Carlos_Nebril.py).
 
 <YouTubeEmbed url="https://www.youtube.com/watch?v=hD6t_KAx1fk&ab_channel=CarlosNJ" rounded />
 
+Lo primero de todo es definir las variables globales que vamos a usar durante toda la práctica: 
 
+```js filename="index.js"
+state = 1 # Nos va a ayudar a definir los distintos estados del robot.
+v = 0     # Proximo argumento para definir la velocidad lineal.
+w = 2     # Proximo argumento para definir la velocidad angular.
+```
+En el ejercicio, el robot, va a oscilar entre tres estados diferentes pero...¿Qué es un estado? 
 
+>  Un **estado** es una situación del circuito (en este caso, del robot) donde debe quedar definido a qué otro estado ir y que salida sacar para cada una
+de las entradas posibles. En este algoritmo usaremos un total de 3 estados.
+
+<center>
+| Estado | Descripción |
+| --------- | ----------- |
+| ESTADO 1 -->| Primera espiral  |
+| ESTADO 2 -->| Giro aleatorio del robot |
+| ESTADO 3 -->| Moverse hacia adelante |
+</center>
+
+### Estado 1
+
+```js filename="index.js"
+# STATE 1: first spiral
+if (state == 1 and HAL.getBumperData().state == 0): 
+        HAL.setV(v)
+        HAL.setW(w)
+        v += 0.01
+```
+Una vez empieza la ejercución del programa, recordamos que en este momento la varibale global "`state=1`", entra en este bucle 
+ya que "`HAL.getBumperData().state=0`" (el robot no esta colisionando). Para conseguir que el robot gire en una espiral,
+mantenemos constante `w` y variamos `v` con cada iteración.
+
+### Estado 2
+```js filename="index.js"
+ # STATE 2: random robot turn
+    elif HAL.getBumperData().state == 1:
+        state = 2
+        wait(3)
+        r = random.randint(0, 4) # numero aleatorio entre 0 y 4
+        HAL.setW(2)
+        rospy.sleep(r)
+        wait(3)
+        state = 3
+```
+En el momento que el robot colisiona con algo, el atributo "`HAL.getBumperData().state=1`" por lo que entrariamos en el 
+segundo estado definido. Lo primero que hacemos es definir nuestra variable "`state=2`" y 
+esperamos<sup>[1](#funcion-wait)</sup> tres segundos. A continuación, definimos una velocidad angular durante "`r`" segundos
+para conseguir un giro aleatorio, esperamos quietos 3 segundos y pasamos al tercer y último estado.
+
+### Estado 3
+
+```js filename="index.js"
+# STATE 3: move forward (if collides: state 2)
+    elif state == 3:
+        v = 3
+        w = 0
+        HAL.setV(v)
+        HAL.setW(w)
+        if HAL.getBumperData().state == 1:
+            HAL.setV(0)
+            HAL.setW(0)
+            state = 2
+```
+Este estado consiste, simplemente, en definir una velocidad lineal (con velocidad angular nula) para que nuestro robot se mueva
+hacia adelante. En el momento que se choque con un objeto del entorno volverá al segundo estado, es decir, elegirá de forma 
+autónoma un giro aleatorio.
+
+### Diagrama de estados
+
+Para ilustrar mejor el comportamiento "choca-gira" de nuestro robot, vamos a ver un ejemplo visual de los estados y 
+de como se relacionan entre sí.
+
+[![Whats-App-Image-2023-02-16-at-14-01-37.jpg](https://i.postimg.cc/h4yGdSCm/Whats-App-Image-2023-02-16-at-14-01-37.jpg)](https://postimg.cc/K4TFXyhc)
+
+#### Funcion wait
+
+```js filename="index.js"
+def wait(n):
+    HAL.setW(0)
+    HAL.setV(0)
+    rospy.sleep(n)
+```
+Definimos tanto la velocidad angular como lineal a "0" y "dormimos" a nuestro robot por cinco segundos haciendo uso del modulo
+"`rospy`". Esta función se usa por motivos de precisión ya que el entorno virtual donde trabajamos, "Unibotics", tiene cierta
+latencia de más.
