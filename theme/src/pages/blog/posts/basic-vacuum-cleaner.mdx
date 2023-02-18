@@ -22,7 +22,7 @@ a estar comentando en esta práctica puedes verlo [aquí](https://github.com/cne
 
 Lo primero de todo es definir las variables globales que vamos a usar durante toda la práctica: 
 
-```js filename="index.js"
+```python filename="variables.py"
 state = 1 # Nos va a ayudar a definir los distintos estados del robot.
 v = 0     # Proximo argumento para definir la velocidad lineal.
 w = 2     # Proximo argumento para definir la velocidad angular.
@@ -42,7 +42,7 @@ de las entradas posibles. En este algoritmo usaremos un total de 3 estados.
 
 ### Estado 1
 
-```js filename="index.js"
+```python filename="state1.py"
 # STATE 1: first spiral
 if (state == 1 and HAL.getBumperData().state == 0): 
         HAL.setV(v)
@@ -54,7 +54,7 @@ ya que "`HAL.getBumperData().state=0`" (el robot no esta colisionando). Para con
 mantenemos constante `w` y variamos `v` con cada iteración.
 
 ### Estado 2
-```js filename="index.js"
+```python filename="state2.py"
  # STATE 2: random robot turn
     elif HAL.getBumperData().state == 1:
         state = 2
@@ -72,7 +72,7 @@ para conseguir un giro aleatorio, esperamos quietos 3 segundos y pasamos al terc
 
 ### Estado 3
 
-```js filename="index.js"
+```python filename="state3.py"
 # STATE 3: move forward (if collides: state 2)
     elif state == 3:
         v = 3
@@ -97,7 +97,7 @@ de como se relacionan entre sí.
 
 #### Funcion wait
 
-```js filename="index.js"
+```python filename="wait.py"
 def wait(n):
     HAL.setW(0)
     HAL.setV(0)
