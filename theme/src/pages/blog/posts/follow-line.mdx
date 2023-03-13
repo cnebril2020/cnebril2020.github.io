@@ -1,0 +1,234 @@
+---
+layout: '../../../layouts/Post.astro'
+title: Follow Line
+description: This is a sample blog post for Odyssey
+publishDate: March 6, 2023
+featuredImage: '/assets/images/blog/odyssey-theme-officially-released/featured.jpg'
+excerpt: 'The goal of this exercise is to perform a PID reactive control capable of following the line painted on the racing circuit. Click for more info.'
+tags: 
+  - Telematics Engineering
+---
+
+import {Button} from '@littlesticks/odyssey-theme-components'
+import {YouTubeEmbed} from '@littlesticks/odyssey-theme-components'
+
+# Practica 2
+
+Propuesta de **controlador PID** para conseguir que el fórmula 1 de la vuelta completa al circuito, teniendo la línea 
+roja como referencia. Vamos a previsualizar el resultado del programa antes de explicarlo, si quieres el código en su totalidad 
+puedes encontrarlo [aquí](https://github.com/cnebril2020/follow_line.github.io/blob/main/practica_2_CarlosNebril.py).
+
+<YouTubeEmbed url="https://www.youtube.com/watch?v=Lr3bonL23W4&ab_channel=CarlosNJ" rounded />
+
+### Librerias importadas
+
+Importamos "HAL" y "GUI", librerias básicas para el control de robots en Unibotics. Otro módulo fundamental para la práctica es 
+"OpenCV", importado en python bajo el nombre "cv2", muy extendido para el tratamiento de imágenes multimedia controlados por 
+visión artificial. Por último, y de forma complementaria a "OpenCV", usaremos "NumPy" para trabajar con arrays multidimensionales.
+
+## Explicación del código
+
+### <u>Detección del color rojo</u>
+
+Aunque el código empiece definiendo la clase ```PIDController()```, nosotros lo dejaremos para el final junto con las variables
+globales. Empezamos el programa principal (a partir del "while True") detectando el color rojo de la imagen obtenida por 
+```HAL.getImage()```, visión frontal del fórmula 1.
+
+```python filename="red_detection.py"
+    # Leer la imagen
+    image = HAL.getImage()
+‎ 
+    # Convertir la imagen al formato HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+‎ 
+    # Definir los umbrales sup. e inf. para el color rojo en formato HSV
+    lower_red = np.array([0, 50, 50])
+    upper_red = np.array([10, 255, 255])
+    mask1 = cv2.inRange(hsv, lower_red, upper_red)
+‎ 
+    lower_red = np.array([170, 50, 50])
+    upper_red = np.array([180, 255, 255])
+    mask2 = cv2.inRange(hsv, lower_red, upper_red)
+‎ 
+    # Combinamos las máscaras
+    mask = cv2.bitwise_or(mask1, mask2)
+‎ 
+    # Aplicamos la máscara a la imagen original
+    result = cv2.bitwise_and(image, image, mask=mask)
+```
+
+Se suele usar el formato "HSV" para el procesamiento de imágenes y aplicaciones de visión por computadora, ya que separa 
+**separa** la información del color (matiz) del brillo (valor) y la saturación. En este formato, el color rojo se encuentra en 
+los matices (es decir, la "H") del 0 al 10 y del 170 al 180 (ver Figura 1), aproximadamente. Para el brillo y la saturación, 
+los dejamos en un amplio rango descartando los valores mas bajos, ya que son los mas oscuros. 
+
+<img 
+    style="display: block; 
+           margin-left: auto;
+           margin-right: auto;
+           width: 100%;"
+    src="https://i.postimg.cc/rpyy8XbR/image.png" 
+    border="5px solid red">
+    <figcaption align = "center"><b>Figura 1: Rangos del color rojo en HSV</b></figcaption>
+</img>
+<br></br>
+A continuación creamos una máscara usando ```cv2.inRange()```, con los **umbrales** uperiores e inferiores, y la aplicamos a la 
+máscara original usando ```cv2.bitwise_and()```. El antes y después se puede observar en la Figura 2.
+
+<img 
+    style="display: block; 
+           margin-left: auto;
+           margin-right: auto;
+           width: 100%;"
+    src="https://i.postimg.cc/pVnppv0g/Captura-de-pantalla-2023-03-12-a-las-22-54-29.png" 
+    border="5px solid red">
+    <figcaption align = "center"><b>Figura 2: Antes y después de la detección del color rojo</b></figcaption>
+</img>
+<br></br>
+### <u>Primer punto de referencia</u>
+
+Para saber en que punto nos encontramos respecto a la línea roja, hay que obtener un punto **estático** que no varíe respecto a la 
+imagen obtenida por ```HAL.getImage()```. Este punto lo destacamos con un círculo verde (ver Figura 3).
+
+```python filename="first_reference.py"
+    # Asignamos los atributos para shape()
+    height, width, channels = result.shape
+‎ 
+    # Obtenemos el punto de referencia en el centro de la imagen
+    height_center = (width // 2) + 10
+    width_center = (height // 2) + 160
+‎ 
+    # Resaltamos el punto de referencia con un círculo VERDE
+    cv2.circle(result, (height_center, width_center), 5, (0, 255, 0), -1)
+```
+<img 
+    style="display: block; 
+           margin-left: auto;
+           margin-right: auto;
+           width: 50%;"
+    src="https://i.postimg.cc/fyWgj4B9/image.png" 
+    border="5px solid red">
+    <figcaption align = "center"><b>Figura 3: Primer punto de referencia</b></figcaption>
+</img>
+<br></br>
+
+### <u>Imagen resultante</u>
+
+Una vez obtenido el primer punto, hay que obtener el segundo de referencia para obtener el **error del sistema**. Cuando dispongamos
+del error cuantificado, podremos introducirlo en el controlador PID y podremos corregirlo a través de ciertas operaciones.
+
+```python filename="second_reference.py"
+    # Definimos los contornos 
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  
+    ‎ 
+    # Definimos el máximo contorno
+    max_contour = max(contours, key=cv2.contourArea)
+    ‎ 
+    # Encontramos los momentos del máximo contorno
+    momments = cv2.moments(max_contour)
+    ‎ 
+    # Obtenemos los centroides, tanto horizontal como vertical
+    center_x = int(momments['m10'] / momments['m00'])
+    center_y = int(momments['m01'] / momments['m00'])
+    ‎ 
+    # Resaltamos el centro dinámico con un círculo AZUL
+    cv2.circle(result, (center_x, center_y), 5, (255, 0, 0), -1)
+    ‎ 
+    # Dibujamos el máximo contorno con el color VERDE
+    cv2.drawContours(result, max_contour, -1, (0, 255, 0), 2)
+    ‎ 
+    # Mostramos la imagen resultante
+    GUI.showImage(result)
+```
+
+Este segundo punto, que es mas complejo de calcular, requiere usar los momentos de la línea roja calculados con la función
+```cv2.moments()```. Los momentos son una medida particular que indica la dispersión de una nube de puntos y, con esto, obtenemos
+el **centroide** (punto azul en la Figura 4) de la figura obtenida con el contorno de la línea roja.
+
+<img 
+    style="display: block; 
+           margin-left: auto;
+           margin-right: auto;
+           width: 50%;"
+    src="https://i.postimg.cc/TPv85357/image.png" 
+    border="5px solid red">
+    <figcaption align = "center"><b>Figura 4: Imagen resultante</b></figcaption>
+</img>
+<br></br>
+
+### <u>Velocidad angular y linear</u>
+
+En este apartado, donde pretendemos definir tanto la **velocidad angular** como **linear** del vehículo, lo primero es calcular el 
+error como hemos mencionado anteriormente (esencialmente, restar el punto azul con el verde). A continuación obtenemos la
+velocidad angular y, este mismo valor, lo introducimos en la funcion ```pid.compute()```, propia de la clase que veremos
+en el siguiente apartado. Por último, y dependiendo del error que se obtenga, definimos una velocidad angular.
+
+```python filename="angular_and_linear_velocity.py"
+    # Se usa 'image.shape[1]' para obtener la anchura de la imagen
+    err = center_x - (image.shape[1] / 2)
+    angular_velocity = -float(err) / (image.shape[1] / 2)
+‎    
+    # Intanciamos la clase con los valores convenientes
+    pid = PIDController(Kp=0.5, Ki=0.015, Kd=0.2, sample_time=0.05)
+‎    
+    # Computamos el error usando la función de la clase 
+    w = pid.compute(angular_velocity)
+‎    
+    # Aplicamos el resultado a la velocidad angular
+    HAL.setW(w)
+‎    
+    # Definimos una velocidad angular dependiendo del error obtenido
+    if abs(w) <= 0.25:
+        HAL.setV(7.5)
+    else:
+        HAL.setV(2)
+```
+
+### <u>Clase PIDController()</u>
+
+Iniciamos la clase con las varibales globales donde almacenaremos los errores dentro de la clase, al modifcarse su valor 
+en cada iteración, necesitamos que sean **acumulativas** (es decir, globales). Los atributos de la clase son: los factores de
+proporcionalidad, integracion y derivativos y el tiempo de muestreo (cada cúanto se toma una nueva muestra).
+
+A continuación definimos la función ```compute(error)```, la cual recibe como argumento el error calculado anteriormente. 
+Calculamos todos los términos y guardamos el error para próximas iteraciones. Por último, sumamos los **tres términos** propios
+de un controlador PID y normalizamos el resultado entre -1 y 1.
+
+```python filename="PIDController.py"
+
+# Definimos los errores como variables globales
+last_error = 0
+integral = 0
+‎
+class PIDController:
+    def __init__(self, Kp, Ki, Kd, sample_time):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.sample_time = sample_time
+‎
+‎
+    def compute(self, error):
+        global last_error, integral
+‎        
+        # Término proporcional
+        P = self.Kp * error
+‎
+        # Término de integración
+        integral += error * self.sample_time
+        integral = self.Ki * last_error
+‎
+        # Término derivativo
+        derivative = (error - last_error) / self.sample_time * self.Kd
+‎
+        # Guardamos el error para la siguiente iteración
+        last_error = error
+‎      
+        # Sumamos todos los términos
+        output = P + integral + derivative
+‎        
+        # Limitamos el 'output' a unos valores máximos y mínimos
+        output = max(min(output, 1.0), -1.0)
+‎
+        return output
+```
